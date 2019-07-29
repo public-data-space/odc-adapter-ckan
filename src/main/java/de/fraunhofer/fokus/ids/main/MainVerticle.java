@@ -1,21 +1,144 @@
 package de.fraunhofer.fokus.ids.main;
 
+import de.fraunhofer.fokus.ids.enums.FileType;
+import de.fraunhofer.fokus.ids.messages.DataAssetCreateMessage;
+import de.fraunhofer.fokus.ids.messages.ResourceRequest;
 import de.fraunhofer.fokus.ids.services.DataAssetService;
 import de.fraunhofer.fokus.ids.services.FileService;
-import de.fraunhofer.fokus.ids.services.RepositoryService;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Vertx;
+import de.fraunhofer.fokus.ids.services.InitService;
+import de.fraunhofer.fokus.ids.services.ckan.CKANServiceVerticle;
+import de.fraunhofer.fokus.ids.services.database.DatabaseServiceVerticle;
+import de.fraunhofer.fokus.ids.services.repository.RepositoryServiceVerticle;
+import io.vertx.core.*;
+import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.Json;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.ext.web.handler.CorsHandler;
+import org.apache.http.entity.ContentType;
+
+import java.util.*;
 
 public class MainVerticle extends AbstractVerticle {
     private static Logger LOGGER = LoggerFactory.getLogger(MainVerticle.class.getName());
+    private Router router;
+    private DataAssetService dataAssetService;
+    private FileService fileService;
+
+    @Override
+    public void start(Future<Void> startFuture) {
+
+        this.router = Router.router(vertx);
+        this.dataAssetService = new DataAssetService(vertx);
+        this.fileService = new FileService(vertx);
+
+        DeploymentOptions deploymentOptions = new DeploymentOptions();
+        deploymentOptions.setWorker(true);
+
+        vertx.deployVerticle(DatabaseServiceVerticle.class.getName(), deploymentOptions, reply -> {
+                if(reply.succeeded()){
+                    LOGGER.info("DataBaseService started");
+                    new InitService(vertx, reply2 -> {
+                        if(reply.succeeded()){
+                            LOGGER.info("Initialization complete.");
+                        }
+                        else{
+                            LOGGER.info("Initialization failed.");
+                        }
+                    });
+
+                }
+                else{
+                    LOGGER.info("DataBaseService failed");
+                }
+        });
+        vertx.deployVerticle(RepositoryServiceVerticle.class.getName(), deploymentOptions, reply -> LOGGER.info("RepositoryService started"));
+        vertx.deployVerticle(CKANServiceVerticle.class.getName(), deploymentOptions, reply -> LOGGER.info("CKANService started"));
+
+        createHttpServer();
+    }
+
+    private void createHttpServer() {
+        HttpServer server = vertx.createHttpServer();
+
+        Set<String> allowedHeaders = new HashSet<>();
+        allowedHeaders.add("x-requested-with");
+        allowedHeaders.add("Access-Control-Allow-Origin");
+        allowedHeaders.add("origin");
+        allowedHeaders.add("Content-Type");
+        allowedHeaders.add("accept");
+        allowedHeaders.add("X-PINGARUNER");
+
+        Set<HttpMethod> allowedMethods = new HashSet<>();
+        allowedMethods.add(HttpMethod.GET);
+        allowedMethods.add(HttpMethod.POST);
+
+        router.route().handler(CorsHandler.create("*").allowedHeaders(allowedHeaders).allowedMethods(allowedMethods));
+        router.route().handler(BodyHandler.create());
+
+        router.post("/create").handler(routingContext ->
+                dataAssetService.createDataAsset(Json.decodeValue(routingContext.getBodyAsJson().toString(), DataAssetCreateMessage.class), reply ->
+                        reply(reply, routingContext.response())));
+
+        router.post("/delete").handler(routingContext ->
+                dataAssetService.deleteDataAsset(Long.parseLong(routingContext.request().getParam("id")), reply ->
+                        reply(reply, routingContext.response())));
+
+        router.post("/getFile").handler(routingContext ->
+                fileService.getFile(Json.decodeValue(routingContext.getBodyAsString(), ResourceRequest.class), reply ->
+                        reply(reply, routingContext.response())));
+
+        router.route("/supported")
+                .handler(routingContext ->
+                        supported(result -> reply(result, routingContext.response()))
+                );
+
+        LOGGER.info("Starting CKAN adapter...");
+        server.requestHandler(router).listen(8091);
+        LOGGER.info("CKAN adapter successfully started.");
+    }
+
+    private void supported(Handler<AsyncResult<String>> next) {
+        LOGGER.info("Returning supported data formats.");
+        List<FileType> types = new ArrayList<>();
+        types.add(FileType.JSON);
+        types.add(FileType.XML);
+        types.add(FileType.TXT);
+
+        next.handle(Future.succeededFuture(Json.encode(types)));
+    }
+
+    private void reply(AsyncResult result, HttpServerResponse response) {
+        if (result.succeeded()) {
+            if (result.result() != null) {
+                String entity = result.result().toString();
+                response.putHeader("content-type", ContentType.APPLICATION_JSON.toString());
+                response.end(entity);
+            } else {
+                response.setStatusCode(404).end();
+            }
+        } else {
+            response.setStatusCode(404).end();
+        }
+    }
+
+//    private void reply(Object result, HttpServerResponse response) {
+//        if (result != null) {
+//            String entity = result.toString();
+//            response.putHeader("content-type", ContentType.APPLICATION_JSON.toString());
+//            response.end(entity);
+//        } else {
+//            response.setStatusCode(404).end();
+//        }
+//    }
 
     public static void main(String[] args) {
-        Vertx vertx = Vertx.vertx();
-        vertx.deployVerticle(RoutingVerticle.class.getName());
-        vertx.deployVerticle(DataAssetService.class.getName());
-        vertx.deployVerticle(FileService.class.getName());
-        vertx.deployVerticle(RepositoryService.class.getName());
+        String[] params = Arrays.copyOf(args, args.length + 1);
+        params[params.length - 1] = MainVerticle.class.getName();
+        Launcher.executeCommand("run", params);
     }
 }

@@ -6,60 +6,80 @@ import de.fraunhofer.fokus.ids.models.CKANResource;
 import de.fraunhofer.fokus.ids.persistence.entities.DataAsset;
 import de.fraunhofer.fokus.ids.persistence.entities.DataSource;
 import de.fraunhofer.fokus.ids.persistence.enums.DataAssetStatus;
+import de.fraunhofer.fokus.ids.services.ckan.CKANService;
+import de.fraunhofer.fokus.ids.services.database.DatabaseService;
+import de.fraunhofer.fokus.ids.services.repository.RepositoryService;
 import io.vertx.core.*;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.eventbus.Message;
-import io.vertx.core.file.OpenOptions;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.codec.BodyCodec;
 
-import java.io.File;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.util.Date;
 import java.util.stream.Collectors;
 
-public class DataAssetService extends AbstractVerticle {
+public class DataAssetService {
 
     final Logger LOGGER = LoggerFactory.getLogger(DataAssetService.class.getName());
 
-    private EventBus eb;
-    private String ROUTE_PREFIX = "de.fraunhofer.fokus.ids.";
-    private WebClient webClient;
+    private CKANService ckanService;
+    private RepositoryService repositoryService;
+    private DatabaseService databaseService;
 
     private String RESOURCE_SHOW = "/resource_show?id=";
     private String PACKAGE_SHOW = "/package_show?id=";
 
-
-    @Override
-    public void start(Future<Void> startFuture) {
-        webClient = WebClient.create(vertx);
-        eb = vertx.eventBus();
-
-        eb.consumer(ROUTE_PREFIX + "ckan.createDataAsset", receivedMessage -> createDataAsset(receivedMessage));
-
-        eb.consumer(ROUTE_PREFIX + "ckan.createDataAsset", receivedMessage -> deleteDataAsset(receivedMessage));
+    public DataAssetService(Vertx vertx){
+        this.ckanService = CKANService.createProxy(vertx, Constants.CKAN_SERVICE);
+        this.repositoryService = RepositoryService.createProxy(vertx, Constants.REPOSITORY_SERVICE);
+        this.databaseService = DatabaseService.createProxy(vertx, Constants.DATABASE_SERVICE);
     }
 
-    private void deleteDataAsset(Message<Object> receivedMessage) {
-
+    public void deleteDataAsset(Long id, Handler<AsyncResult<DataAsset>> resultHandler) {
 
     }
 
+    private void saveAccessInformation(AsyncResult<DataAsset> dataAsset, Handler<AsyncResult<DataAsset>> next){
+        if(dataAsset.succeeded()){
+            DataAsset dataAsset1 = dataAsset.result();
 
-    private void createDataAsset(Message<Object> receivedMessage) {
-        DataAssetCreateMessage message = Json.decodeValue(receivedMessage.body().toString(), DataAssetCreateMessage.class);
+            repositoryService.downloadResource(dataAsset1.getUrl(), reply -> {
+                if(reply.succeeded()) {
+                    Date d = new Date();
+                    databaseService.update("INSERT INTO accessinformation values(?,?,?)",
+                            new JsonArray().add(d.toInstant())
+                                    .add(dataAsset1.getResourceID())
+                                    .add(reply.result()), reply2 -> {
+                        if(reply2.succeeded()){
+                            next.handle(Future.succeededFuture(dataAsset1));
+                        }
+                        else{
+                            LOGGER.info("Access information could not be inserted into database.\n\n"+reply2.cause());
+                            next.handle(Future.failedFuture(reply2.cause()));
+                        }
+                            });
+                }
+                else{
+                    LOGGER.info("File resource could not be downloaded.\n\n"+reply.cause());
+                    next.handle(Future.failedFuture(reply.cause()));
+                }
+            });
+        }
+        else{
+            next.handle(Future.failedFuture(dataAsset.cause()));
+        }
+    }
+
+    public void createDataAsset(DataAssetCreateMessage message, Handler<AsyncResult<JsonObject>> resultHandler) {
         final DataAsset dataAsset = new DataAsset();
         dataAsset.setSourceID(message.getDataSource().getId().toString());
         dataAsset.setResourceID(message.getJob().getData().getString("resourceId"));
 
         buildDataAsset(da ->
-                        replyDataAsset(da,
-                                receivedMessage),
+                        saveAccessInformation(da, v ->
+                                replyDataAsset(v,
+                                        resultHandler)),
                 dataAsset,
                 message.getDataSource());
     }
@@ -68,26 +88,19 @@ public class DataAssetService extends AbstractVerticle {
                                 DataAsset dataAsset,
                                 DataSource dataSource){
 
-                Future<JsonObject> resourceFuture = Future.future();
-                queryCKAN(dataSource, dataAsset.getResourceID(), RESOURCE_SHOW, resourceFuture);
-                resourceFuture.setHandler(daF -> {
-                    if (daF.succeeded()) {
-                        CKANResource ckanResource = Json.decodeValue(resourceFuture.result().toString(), CKANResource.class);
-                        dataAsset.setFormat(ckanResource.format);
-                        dataAsset.setName(ckanResource.name);
-                        dataAsset.setResourceID(ckanResource.id);
-                        dataAsset.setUrl(ckanResource.url);
-                        dataAsset.setOrignalResourceURL(ckanResource.originalURL);
-                        dataAsset.setDatasetID(ckanResource.package_id);
+        ckanService.query(new JsonObject(Json.encode(dataSource)), dataAsset.getResourceID(), RESOURCE_SHOW, reply -> {
+                if (reply.succeeded()) {
+                    CKANResource ckanResource = Json.decodeValue(reply.result().toString(), CKANResource.class);
+                    dataAsset.setFormat(ckanResource.format);
+                    dataAsset.setName(ckanResource.name);
+                    dataAsset.setResourceID(ckanResource.id);
+                    dataAsset.setUrl(ckanResource.url);
+                    dataAsset.setOrignalResourceURL(ckanResource.originalURL);
+                    dataAsset.setDatasetID(ckanResource.package_id);
 
-                        Future<JsonObject> datasetFuture = Future.future();
-                        Future<File> fileFuture = Future.future();
-                        downloadResource(fileFuture, dataAsset.getUrl());
-                        queryCKAN(dataSource, dataAsset.getDatasetID(), PACKAGE_SHOW, datasetFuture);
-
-                        CompositeFuture.all(datasetFuture, fileFuture).setHandler(ac -> {
-                            if (ac.succeeded()) {
-                                CKANDataset ckanDataset = Json.decodeValue(datasetFuture.result().toString(), CKANDataset.class);
+                    ckanService.query(new JsonObject(Json.encode(dataSource)), dataAsset.getDatasetID(), PACKAGE_SHOW, reply2 -> {
+                            if (reply2.succeeded()) {
+                                CKANDataset ckanDataset = Json.decodeValue(reply2.result().toString(), CKANDataset.class);
                                 dataAsset.setDatasetNotes(ckanDataset.notes);
                                 dataAsset.setDatasetTitle(ckanDataset.title);
                                 dataAsset.setLicenseTitle(ckanDataset.license_title);
@@ -102,159 +115,27 @@ public class DataAssetService extends AbstractVerticle {
                                 dataAsset.setSignature("");
                                 dataAsset.setStatus(DataAssetStatus.APPROVED);
 
-                                File file = fileFuture.result();
-                                dataAsset.setAccessInformation(file.getName());
                                 next.handle(Future.succeededFuture(dataAsset));
 
-                            }
-                            else{
-                                LOGGER.error("DataAsset and File Futures could not be completed.\n\n" + daF.cause());
-                                next.handle(Future.failedFuture(daF.cause()));
+                            } else {
+                                LOGGER.error("DataAsset and File Futures could not be completed.\n\n" + reply2.cause());
+                                next.handle(Future.failedFuture(reply2.cause()));
                             }
                         });
-                    } else {
-                        LOGGER.error("DataAsset Future could not be completed.\n\n" + daF.cause());
-                        next.handle(Future.failedFuture(daF.cause()));
-                    }
-                });
+                } else {
+                    LOGGER.error("DataAsset Future could not be completed.\n\n" + reply.cause());
+                    next.handle(Future.failedFuture(reply.cause()));
+                }
+        });
     }
 
-    /**
-     *
-     * @param result
-     * @param receivedMessage
-     */
-    private void replyDataAsset(AsyncResult<DataAsset> result, Message<Object> receivedMessage){
+    private void replyDataAsset(AsyncResult<DataAsset> result, Handler<AsyncResult<JsonObject>> resultHandler){
         if(result.succeeded()) {
-            receivedMessage.reply(Json.encode(result.result()));
+            resultHandler.handle(Future.succeededFuture(new JsonObject(Json.encode(result.result()))));
         }
         else {
             LOGGER.error("Final Data Asset future failed.\n\n"+result.cause());
-            receivedMessage.fail(0, "DataAsset could not be created.");
-        }
-    }
-
-    /**
-     *
-     * @param future
-     * @param urlString
-     */
-    private void downloadResource(Future future, String urlString) {
-        getFile(file ->
-                        downloadFile(file,
-                                urlString,
-                                future),
-                urlString);
-    }
-
-    /**
-     * Method to query the CKAN api of the DataSource
-     * @param resourceID ID of the resource to be retrieved from the api
-     * @param resourceAPIPath API path to query
-     * @param future TODO
-     */
-    private void queryCKAN(DataSource dataSource, String resourceID, String resourceAPIPath, Future future) {
-        LOGGER.info("Querying CKAN.");
-        try {
-            URL dsUrl = new URL(dataSource.getData().getString("ckanApiUrl"));
-            String host = dsUrl.getHost();
-            int port = Integer.parseInt(dataSource.getData().getString("ckanPort"));
-            String path = dsUrl.getPath() == "/" ? "" : dsUrl.getPath() + resourceAPIPath + resourceID;
-
-            webClient
-                    .get(port, host, path)
-                    .send(ar -> {
-                        if (ar.succeeded()) {
-                            future.complete(ar.result().bodyAsJsonObject().getJsonObject("result").put("originalURL", host + path));
-                        } else {
-                            LOGGER.error("No response from CKAN.\n\n" + ar.cause().getMessage());
-                            future.fail(ar.cause().getMessage());
-                        }
-                    });
-        } catch (MalformedURLException e) {
-            LOGGER.error(e);
-            future.fail(e.getMessage());
-        }
-    }
-
-    /**
-     * Method to initiate creation of a file for later download
-     * @param next Handler to download file content into the created file
-     * @param urlString TODO
-     */
-    private void getFile(Handler<AsyncResult<File>> next, String urlString){
-        LOGGER.info("Starting to query file information.");
-        URL url;
-        try {
-            url = new URL(urlString);
-            eb.send(ROUTE_PREFIX+"ckan.repositoryService.createFile", Json.encode(url), res -> {
-                if(res.succeeded()) {
-                    try {
-                        LOGGER.info("File is created on the file system.");
-                        next.handle(Future.succeededFuture(Json.decodeValue(res.result().body().toString(), File.class)));
-                    } catch (Exception e) {
-                        LOGGER.error("File could not be found via repository service.", e);
-                        next.handle(Future.failedFuture(res.cause()));
-                    }
-                }
-                else {
-                    LOGGER.error("File could not be created.\n\n"+res.cause().toString());
-                    next.handle(Future.failedFuture(res.cause()));
-                }
-            });
-        }
-        catch (MalformedURLException e){
-            LOGGER.error("URL could not be resolved",e);
-            next.handle(Future.failedFuture(e.getMessage()));
-        }
-    }
-
-    /**
-     * Method to perform download of the resource file
-     * @param result File Future produced by getFile()
-     * @param urlString TODO
-     * @param future TODO
-     */
-    private void downloadFile(AsyncResult<File> result, String urlString, Future future){
-        if(result.failed()) {
-            LOGGER.error("File Future could not be completed.\n\n"+result.cause());
-            future.fail(result.cause().toString());
-        }else {
-            LOGGER.info("Starting to download DataAsset file.");
-            URL url;
-            try {
-                url = new URL(urlString);
-                final int port = url.getPort() == -1 ? 80 : url.getPort();
-                final String host = url.getHost();
-                final String path = url.getPath();
-
-                File file = result.result();
-                vertx.fileSystem().open(file.getAbsolutePath(),
-                        new OpenOptions().setWrite(true).setCreate(true),
-                        fres -> {
-                            if (fres.succeeded()) {
-                                webClient
-                                        .get(port, host, path)
-                                        .as(BodyCodec.pipe(fres.result()))
-                                        .send(ar -> {
-                                            if (ar.succeeded()) {
-                                                HttpResponse<Void> response = ar.result();
-                                                LOGGER.info("Received response with status code " + response.statusCode() + ". File is downloaded.");
-                                                future.complete(file);
-                                            } else {
-                                                LOGGER.error("File could not be downloaded.\n\n" + ar.cause());
-                                                future.fail(ar.cause().toString());
-                                            }
-                                        });
-                            } else {
-                                LOGGER.error("Filesystem could not be accessed.\n\n" + fres.cause().toString());
-                                future.fail(fres.cause().toString());
-                            }
-                        });
-            } catch (MalformedURLException e) {
-                LOGGER.error("URL could not be resolved",e);
-                future.fail(e.getMessage());
-            }
+            resultHandler.handle(Future.failedFuture(result.cause()));
         }
     }
 }

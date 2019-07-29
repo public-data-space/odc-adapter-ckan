@@ -1,0 +1,51 @@
+package de.fraunhofer.fokus.ids.services.ckan;
+
+import de.fraunhofer.fokus.ids.persistence.entities.DataSource;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.web.client.WebClient;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+
+public class CKANServiceImpl implements CKANService {
+    final Logger LOGGER = LoggerFactory.getLogger(CKANServiceImpl.class.getName());
+    private WebClient webClient;
+
+    public CKANServiceImpl(WebClient webClient, Handler<AsyncResult<CKANService>> readyHandler) {
+        this.webClient = webClient;
+        readyHandler.handle(Future.succeededFuture(this));
+    }
+
+    @Override
+    public CKANService query(JsonObject dataSourceJson, String resourceID, String resourceAPIPath, Handler<AsyncResult<JsonObject>> resultHandler) {
+        LOGGER.info("Querying CKAN.");
+        DataSource dataSource = Json.decodeValue(dataSourceJson.toString(), DataSource.class);
+        try {
+            URL dsUrl = new URL(dataSource.getData().getString("ckanApiUrl"));
+            String host = dsUrl.getHost();
+            int port = Integer.parseInt(dataSource.getData().getString("ckanPort"));
+            String path = dsUrl.getPath() == "/" ? "" : dsUrl.getPath() + resourceAPIPath + resourceID;
+
+            webClient
+                    .get(port, host, path)
+                    .send(ar -> {
+                        if (ar.succeeded()) {
+                            resultHandler.handle(Future.succeededFuture(ar.result().bodyAsJsonObject().getJsonObject("result").put("originalURL", host + path)));
+                        } else {
+                            LOGGER.error("No response from CKAN.\n\n" + ar.cause().getMessage());
+                            resultHandler.handle(Future.failedFuture(ar.cause()));
+                        }
+                    });
+        } catch (MalformedURLException e) {
+            LOGGER.error(e);
+            resultHandler.handle(Future.failedFuture(e.getMessage()));
+        }
+        return this;
+    }
+}
