@@ -14,6 +14,8 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
@@ -104,12 +106,15 @@ public class MainVerticle extends AbstractVerticle {
 
     private void supported(Handler<AsyncResult<String>> next) {
         LOGGER.info("Returning supported data formats.");
-        List<FileType> types = new ArrayList<>();
+        JsonArray types = new JsonArray();
         types.add(FileType.JSON);
         types.add(FileType.XML);
         types.add(FileType.TXT);
 
-        next.handle(Future.succeededFuture(Json.encode(types)));
+        JsonObject jO = new JsonObject();
+        jO.put("supported", types);
+
+        next.handle(Future.succeededFuture(jO.toString()));
     }
 
     private void reply(AsyncResult result, HttpServerResponse response) {
