@@ -54,10 +54,10 @@ public class FileService {
 
     private void getAccessInformation(Handler<AsyncResult<String>> resultHandler, DataAsset dataAsset){
 
-        databaseService.query("SELECT filename from accessinformation WHERE dataassetid = ?", new JsonArray().add(dataAsset.getResourceID()), reply -> {
+        databaseService.query("SELECT filename from accessinformation WHERE dataassetid = ?", new JsonArray().add(dataAsset.getId()), reply -> {
 
             if(reply.succeeded()){
-                resultHandler.handle(Future.succeededFuture(reply.result().get(0).getString("fileName")));
+                resultHandler.handle(Future.succeededFuture(reply.result().get(0).getString("filename")));
             }
             else{
                 LOGGER.info("File information could not be retrieved.\n\n"+reply.cause());

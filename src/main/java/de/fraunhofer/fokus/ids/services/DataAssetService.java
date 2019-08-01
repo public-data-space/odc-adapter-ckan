@@ -47,9 +47,9 @@ public class DataAssetService {
             repositoryService.downloadResource(dataAsset1.getUrl(), reply -> {
                 if(reply.succeeded()) {
                     Date d = new Date();
-                    databaseService.update("INSERT INTO accessinformation values(?,?,?)",
-                            new JsonArray().add(d.toInstant())
-                                    .add(dataAsset1.getResourceID())
+                    databaseService.update("INSERT INTO accessinformation values(?,?,?,?)",
+                            new JsonArray().add(d.toInstant()).add(d.toInstant())
+                                    .add(dataAsset1.getId())
                                     .add(reply.result()), reply2 -> {
                         if(reply2.succeeded()){
                             next.handle(Future.succeededFuture(dataAsset1));
@@ -73,9 +73,9 @@ public class DataAssetService {
 
     public void createDataAsset(DataAssetCreateMessage message, Handler<AsyncResult<JsonObject>> resultHandler) {
         final DataAsset dataAsset = new DataAsset();
-        dataAsset.setSourceID(message.getDataSource().getId().toString());
+        dataAsset.setSourceID(message.getDataSource().getId());
         dataAsset.setResourceID(message.getJob().getData().getString("resourceId"));
-
+        dataAsset.setId(message.getDataAssetId());
         buildDataAsset(da ->
                         saveAccessInformation(da, v ->
                                 replyDataAsset(v,

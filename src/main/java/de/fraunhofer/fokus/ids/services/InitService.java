@@ -28,7 +28,7 @@ public class InitService {
     }
 
     private void initDB(Handler<AsyncResult<Void>> resultHandler){
-        databaseService.update("CREATE TABLE IF NOT EXISTS accessinformation (created_at, dataassetid, fileName)", new JsonArray(), reply -> {
+        databaseService.update("CREATE TABLE IF NOT EXISTS accessinformation (created_at, updated_at, dataassetid, filename)", new JsonArray(), reply -> {
             if(reply.succeeded()){
                 resultHandler.handle(Future.succeededFuture());
             }
