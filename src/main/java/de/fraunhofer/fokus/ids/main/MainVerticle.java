@@ -47,17 +47,17 @@ public class MainVerticle extends AbstractVerticle {
                 if(reply.succeeded()){
                     LOGGER.info("DataBaseService started");
                     new InitService(vertx, reply2 -> {
-                        if(reply.succeeded()){
+                        if(reply2.succeeded()){
                             LOGGER.info("Initialization complete.");
                         }
                         else{
-                            LOGGER.info("Initialization failed.");
+                            LOGGER.info("Initialization failed.", reply2.cause());
                         }
                     });
 
                 }
                 else{
-                    LOGGER.info("DataBaseService failed");
+                    LOGGER.info("DataBaseService failed", reply.cause());
                 }
         });
         vertx.deployVerticle(RepositoryServiceVerticle.class.getName(), deploymentOptions, reply -> LOGGER.info("RepositoryService started"));
@@ -102,7 +102,7 @@ public class MainVerticle extends AbstractVerticle {
                 );
 
         LOGGER.info("Starting CKAN adapter...");
-        server.requestHandler(router).listen(8091);
+        server.requestHandler(router).listen(8080);
         LOGGER.info("CKAN adapter successfully started.");
     }
 

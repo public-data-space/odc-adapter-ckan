@@ -184,17 +184,18 @@ public class RepositoryServiceImpl implements RepositoryService {
     }
 
     private void getConfig(Vertx vertx) {
-        ConfigStoreOptions fileStore = new ConfigStoreOptions()
-                .setType("file")
-                .setConfig(new JsonObject().put("path", this.getClass().getClassLoader().getResource("conf/application.conf").getFile()));
 
-        ConfigRetrieverOptions options = new ConfigRetrieverOptions().addStore(fileStore);
+        ConfigStoreOptions confStore = new ConfigStoreOptions()
+                .setType("env");
+
+        ConfigRetrieverOptions options = new ConfigRetrieverOptions().addStore(confStore);
 
         ConfigRetriever retriever = ConfigRetriever.create(vertx, options);
 
         retriever.getConfig(ar -> {
             if (ar.succeeded()) {
-                this.repoPath = ar.result().getJsonObject("config").getJsonObject("repository").getString("path");
+
+                this.repoPath = ar.result().getString("REPOSITORY");
             } else {
                 LOGGER.error("Config could not be retrieved.");
             }
