@@ -31,7 +31,7 @@ public class DatabaseServiceVerticle extends AbstractVerticle {
             if (ar.succeeded()) {
                 JsonObject env = ar.result();
                 JsonObject config = new JsonObject()
-                        .put("url", "jdbc:sqlite:"+env.getString("DB_URL"))
+                        .put("url", "jdbc:sqlite:"+env.getString("REPOSITORY")+"db")
                         .put("driver_class", "org.sqlite.jdbcDriver")
                         .put("max_pool_size", 30);
                 SQLClient jdbc = JDBCClient.createShared(vertx, config);
