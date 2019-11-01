@@ -101,6 +101,17 @@ public class MainVerticle extends AbstractVerticle {
                         supported(result -> reply(result, routingContext.response()))
                 );
 
+        router.route("/getDataAssetFormSchema")
+                .handler(routingContext ->
+                        getDataAssetFormSchema(result -> reply(result, routingContext.response()))
+                );
+
+        router.route("/getDataSourceFormSchema")
+                .handler(routingContext ->
+                        getDataSourceFormSchema(result -> reply(result, routingContext.response()))
+                );
+
+
         LOGGER.info("Starting CKAN adapter...");
         server.requestHandler(router).listen(8080);
         LOGGER.info("CKAN adapter successfully started.");
@@ -115,6 +126,39 @@ public class MainVerticle extends AbstractVerticle {
 
         JsonObject jO = new JsonObject();
         jO.put("supported", types);
+
+        next.handle(Future.succeededFuture(jO.toString()));
+    }
+
+    private void getDataAssetFormSchema(Handler<AsyncResult<String>> next) {
+        LOGGER.info("Returning form schema for data asset.");
+        JsonObject jO = new JsonObject();
+        jO.put("type","object");
+        jO.put("properties", new JsonObject()
+                .put("resourceId", new JsonObject()
+                        .put("type", "string")
+                        .put("ui", new JsonObject()
+                                .put("label", "Resource ID")
+                                .put("placeholder", "27b4920f-e85a-436e-a1a8-e000649abb28"))));
+        next.handle(Future.succeededFuture(jO.toString()));
+    }
+
+    private void getDataSourceFormSchema(Handler<AsyncResult<String>> next) {
+        LOGGER.info("Returning form schema for data source.");
+
+        JsonObject jO = new JsonObject();
+        jO.put("type","object");
+        jO.put("properties", new JsonObject()
+                .put("ckanApiUrl", new JsonObject()
+                        .put("type", "string")
+                        .put("ui", new JsonObject()
+                                .put("label", "Data Source URL")
+                                .put("placeholder", "http://localhost")))
+                .put("ckanPort", new JsonObject()
+                        .put("type", "string")
+                        .put("ui", new JsonObject()
+                                .put("label", "Data Source Port")
+                                .put("placeholder", "8080"))));
 
         next.handle(Future.succeededFuture(jO.toString()));
     }
