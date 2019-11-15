@@ -14,10 +14,12 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-
+/**
+ * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
+ */
 public class FileService {
 
-    final Logger LOGGER = LoggerFactory.getLogger(DataAssetService.class.getName());
+    private final Logger LOGGER = LoggerFactory.getLogger(DataAssetService.class.getName());
 
     private RepositoryService repositoryService;
     private DatabaseService databaseService;
@@ -60,7 +62,7 @@ public class FileService {
                 resultHandler.handle(Future.succeededFuture(reply.result().get(0).getString("filename")));
             }
             else{
-                LOGGER.info("File information could not be retrieved.\n\n"+reply.cause());
+                LOGGER.error("File information could not be retrieved.", reply.cause());
                 resultHandler.handle(Future.failedFuture(reply.cause()));
             }
         });
@@ -73,7 +75,7 @@ public class FileService {
                 if (reply.succeeded()) {
                     next.handle(Future.succeededFuture(reply.result()));
                 } else {
-                    LOGGER.error("FileContent could not be read.\n\n" + reply.cause());
+                    LOGGER.error("FileContent could not be read.", reply.cause());
                     next.handle(Future.failedFuture(reply.cause()));
                 }
             });
@@ -99,7 +101,7 @@ public class FileService {
             resultHandler.handle(Future.succeededFuture(jO));
         }
         else {
-            LOGGER.error("FileContent could not be read.\n\n"+result.cause());
+            LOGGER.error("FileContent could not be read.", result.cause());
             resultHandler.handle(Future.failedFuture(result.cause()));
         }
     }

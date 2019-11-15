@@ -1,5 +1,7 @@
 package de.fraunhofer.fokus.ids.models;
-
+/**
+ * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
+ */
 public class CKANOrganization {
 	public String description;
 	public String created;

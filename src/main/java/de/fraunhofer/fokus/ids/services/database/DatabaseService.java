@@ -12,7 +12,9 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.sql.SQLClient;
 
 import java.util.List;
-
+/**
+ * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
+ */
 @ProxyGen
 @VertxGen
 public interface DatabaseService {

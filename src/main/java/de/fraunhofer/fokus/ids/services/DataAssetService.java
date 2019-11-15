@@ -18,10 +18,12 @@ import io.vertx.core.logging.LoggerFactory;
 
 import java.util.Date;
 import java.util.stream.Collectors;
-
+/**
+ * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
+ */
 public class DataAssetService {
 
-    final Logger LOGGER = LoggerFactory.getLogger(DataAssetService.class.getName());
+    private final Logger LOGGER = LoggerFactory.getLogger(DataAssetService.class.getName());
 
     private CKANService ckanService;
     private RepositoryService repositoryService;
@@ -55,13 +57,13 @@ public class DataAssetService {
                             next.handle(Future.succeededFuture(dataAsset1));
                         }
                         else{
-                            LOGGER.info("Access information could not be inserted into database.\n\n"+reply2.cause());
+                            LOGGER.error("Access information could not be inserted into database.", reply2.cause());
                             next.handle(Future.failedFuture(reply2.cause()));
                         }
                             });
                 }
                 else{
-                    LOGGER.info("File resource could not be downloaded.\n\n"+reply.cause());
+                    LOGGER.error("File resource could not be downloaded.", reply.cause());
                     next.handle(Future.failedFuture(reply.cause()));
                 }
             });
@@ -118,12 +120,12 @@ public class DataAssetService {
                                 next.handle(Future.succeededFuture(dataAsset));
 
                             } else {
-                                LOGGER.error("DataAsset and File Futures could not be completed.\n\n" + reply2.cause());
+                                LOGGER.error("DataAsset and File Futures could not be completed.", reply2.cause());
                                 next.handle(Future.failedFuture(reply2.cause()));
                             }
                         });
                 } else {
-                    LOGGER.error("DataAsset Future could not be completed.\n\n" + reply.cause());
+                    LOGGER.error("DataAsset Future could not be completed.", reply.cause());
                     next.handle(Future.failedFuture(reply.cause()));
                 }
         });
@@ -134,7 +136,7 @@ public class DataAssetService {
             resultHandler.handle(Future.succeededFuture(new JsonObject(Json.encode(result.result()))));
         }
         else {
-            LOGGER.error("Final Data Asset future failed.\n\n"+result.cause());
+            LOGGER.error("Final Data Asset future failed.", result.cause());
             resultHandler.handle(Future.failedFuture(result.cause()));
         }
     }

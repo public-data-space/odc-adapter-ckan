@@ -24,10 +24,12 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.UUID;
-
+/**
+ * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
+ */
 public class RepositoryServiceImpl implements RepositoryService {
 
-    final Logger LOGGER = LoggerFactory.getLogger(RepositoryServiceImpl.class.getName());
+    private final Logger LOGGER = LoggerFactory.getLogger(RepositoryServiceImpl.class.getName());
 
     private String repoPath;
     private Vertx vertx;

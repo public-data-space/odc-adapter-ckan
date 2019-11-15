@@ -12,9 +12,11 @@ import io.vertx.ext.web.client.WebClient;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-
+/**
+ * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
+ */
 public class CKANServiceImpl implements CKANService {
-    final Logger LOGGER = LoggerFactory.getLogger(CKANServiceImpl.class.getName());
+    private final Logger LOGGER = LoggerFactory.getLogger(CKANServiceImpl.class.getName());
     private WebClient webClient;
 
     public CKANServiceImpl(WebClient webClient, Handler<AsyncResult<CKANService>> readyHandler) {
@@ -30,7 +32,7 @@ public class CKANServiceImpl implements CKANService {
             URL dsUrl = new URL(dataSource.getData().getString("ckanApiUrl"));
             String host = dsUrl.getHost();
             int port = Integer.parseInt(dataSource.getData().getString("ckanPort"));
-            String path = dsUrl.getPath() == "/" ? "" : dsUrl.getPath() + resourceAPIPath + resourceID;
+            String path = dsUrl.getPath().equals("/") ? "" : dsUrl.getPath() + resourceAPIPath + resourceID;
 
             webClient
                     .get(port, host, path)
@@ -38,7 +40,7 @@ public class CKANServiceImpl implements CKANService {
                         if (ar.succeeded()) {
                             resultHandler.handle(Future.succeededFuture(ar.result().bodyAsJsonObject().getJsonObject("result").put("originalURL", host + path)));
                         } else {
-                            LOGGER.error("No response from CKAN.\n\n" + ar.cause().getMessage());
+                            LOGGER.error("No response from CKAN.", ar.cause());
                             resultHandler.handle(Future.failedFuture(ar.cause()));
                         }
                     });

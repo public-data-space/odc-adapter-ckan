@@ -3,12 +3,10 @@ package de.fraunhofer.fokus.ids.main;
 import de.fraunhofer.fokus.ids.enums.FileType;
 import de.fraunhofer.fokus.ids.messages.DataAssetCreateMessage;
 import de.fraunhofer.fokus.ids.messages.ResourceRequest;
-import de.fraunhofer.fokus.ids.services.Constants;
 import de.fraunhofer.fokus.ids.services.DataAssetService;
 import de.fraunhofer.fokus.ids.services.FileService;
 import de.fraunhofer.fokus.ids.services.InitService;
 import de.fraunhofer.fokus.ids.services.ckan.CKANServiceVerticle;
-import de.fraunhofer.fokus.ids.services.database.DatabaseService;
 import de.fraunhofer.fokus.ids.services.database.DatabaseServiceVerticle;
 import de.fraunhofer.fokus.ids.services.repository.RepositoryServiceVerticle;
 import io.vertx.core.*;
@@ -26,7 +24,9 @@ import io.vertx.ext.web.handler.CorsHandler;
 import org.apache.http.entity.ContentType;
 
 import java.util.*;
-
+/**
+ * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
+ */
 public class MainVerticle extends AbstractVerticle {
     private static Logger LOGGER = LoggerFactory.getLogger(MainVerticle.class.getName());
     private Router router;
@@ -51,13 +51,13 @@ public class MainVerticle extends AbstractVerticle {
                             LOGGER.info("Initialization complete.");
                         }
                         else{
-                            LOGGER.info("Initialization failed.", reply2.cause());
+                            LOGGER.error("Initialization failed.", reply2.cause());
                         }
                     });
 
                 }
                 else{
-                    LOGGER.info("DataBaseService failed", reply.cause());
+                    LOGGER.error("DataBaseService failed", reply.cause());
                 }
         });
         vertx.deployVerticle(RepositoryServiceVerticle.class.getName(), deploymentOptions, reply -> LOGGER.info("RepositoryService started"));
@@ -175,21 +175,5 @@ public class MainVerticle extends AbstractVerticle {
         } else {
             response.setStatusCode(404).end();
         }
-    }
-
-//    private void reply(Object result, HttpServerResponse response) {
-//        if (result != null) {
-//            String entity = result.toString();
-//            response.putHeader("content-type", ContentType.APPLICATION_JSON.toString());
-//            response.end(entity);
-//        } else {
-//            response.setStatusCode(404).end();
-//        }
-//    }
-
-    public static void main(String[] args) {
-        String[] params = Arrays.copyOf(args, args.length + 1);
-        params[params.length - 1] = MainVerticle.class.getName();
-        Launcher.executeCommand("run", params);
     }
 }

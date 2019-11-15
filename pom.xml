@@ -149,16 +149,21 @@
             <version>2.6</version>
         </dependency>
     </dependencies>
-    <distributionManagement>
+    <repositories>
         <repository>
-            <id>paca</id>
-            <name>Paca Releases Repo</name>
+            <id>iais-snapshot</id>
+            <name>Fraunhofer IAIS Snapshots</name>
+            <url>https://maven.iais.fraunhofer.de/artifactory/eis-ids-public</url>
+        </repository>
+        <repository>
+            <id>pacarelease</id>
+            <name>Fraunhofer FOKUS Paca Releases Repo</name>
             <url>https://paca.okd.fokus.fraunhofer.de/repository/maven-releases/</url>
         </repository>
-        <snapshotRepository>
-            <id>paca</id>
-            <name>Paca Snapshots Repo</name>
+        <repository>
+            <id>pacasnapshot</id>
+            <name>Fraunhofer FOKUS Paca Snapshots Repo</name>
             <url>https://paca.okd.fokus.fraunhofer.de/repository/maven-snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
+        </repository>
+    </repositories>
 </project>
