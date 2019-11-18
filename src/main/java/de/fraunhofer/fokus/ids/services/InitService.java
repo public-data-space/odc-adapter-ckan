@@ -72,21 +72,30 @@ public class InitService {
                                     .put("host", ar.result().getString("ROUTE_ALIAS"))
                                     .put("port", 8080));
                     WebClient webClient = WebClient.create(vertx);
-                    webClient
-                            .post(ar.result().getInteger("CONFIG_MANAGER_PORT"), ar.result().getString("CONFIG_MANAGER_HOST"), "/register")
-                            .sendJsonObject(registration, reg -> {
-                                if (reg.succeeded()) {
-                                    resultHandler.handle(Future.succeededFuture());
-                                } else {
-                                    LOGGER.error(reg.cause());
-                                    resultHandler.handle(Future.failedFuture(reg.cause()));
-                                }
-                            });
+                    establishConnection(3, webClient, ar.result().getInteger("CONFIG_MANAGER_PORT"), ar.result().getString("CONFIG_MANAGER_HOST"), "/register", registration, resultHandler);
                 }
-            } else{
+            } else {
                 LOGGER.error(ar.cause());
                 resultHandler.handle(Future.failedFuture(ar.cause()));
             }
         });
     }
+
+    private void establishConnection(int i, WebClient webClient, int port, String host, String path, JsonObject registration, Handler<AsyncResult<Void>> resultHandler) {
+        if (i == 0){
+            resultHandler.handle(Future.failedFuture("Connection refused"));
+        }
+        webClient
+                .post(port, host, path)
+                .sendJsonObject(registration, ar -> {
+                    if(ar.succeeded()){
+                        resultHandler.handle(Future.succeededFuture());
+                    }
+                    else{
+                        establishConnection(i-1,webClient, port, host, path, registration, resultHandler);
+                    }
+                });
+
+    }
+
 }
