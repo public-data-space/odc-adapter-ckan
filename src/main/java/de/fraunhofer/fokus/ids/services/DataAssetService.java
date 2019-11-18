@@ -16,6 +16,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
+import java.io.File;
 import java.util.Date;
 import java.util.stream.Collectors;
 /**
@@ -28,6 +29,7 @@ public class DataAssetService {
     private CKANService ckanService;
     private RepositoryService repositoryService;
     private DatabaseService databaseService;
+    private FileService fileService;
 
     private String RESOURCE_SHOW = "/resource_show?id=";
     private String PACKAGE_SHOW = "/package_show?id=";
@@ -36,11 +38,49 @@ public class DataAssetService {
         this.ckanService = CKANService.createProxy(vertx, Constants.CKAN_SERVICE);
         this.repositoryService = RepositoryService.createProxy(vertx, Constants.REPOSITORY_SERVICE);
         this.databaseService = DatabaseService.createProxy(vertx, Constants.DATABASE_SERVICE);
+        this.fileService = new FileService(vertx);
     }
 
-    public void deleteDataAsset(Long id, Handler<AsyncResult<DataAsset>> resultHandler) {
-
+    public void deleteDataAsset(Long id, Handler<AsyncResult<JsonObject>> resultHandler) {
+        getFilename(id, fileNameReply -> {
+            if(fileNameReply.succeeded()){
+                repositoryService.deleteFile(fileNameReply.result(), fileDeleteReply -> {
+                    if(fileDeleteReply.succeeded()) {
+                        databaseService.update("DELETE FROM accessinformation WHERE dataassetid=?", new JsonArray().add(id), databaseDeleteReply -> {
+                            if(databaseDeleteReply.succeeded()) {
+                                LOGGER.info("Data Asset successfully deleted.");
+                                resultHandler.handle(Future.succeededFuture(new JsonObject().put("status","success")));
+                            }
+                            else{
+                                LOGGER.error("Data Asset could not be deleted.");
+                                resultHandler.handle(Future.failedFuture(databaseDeleteReply.cause()));
+                            }
+                        });
+                    } else {
+                      LOGGER.error(fileDeleteReply.cause());
+                      resultHandler.handle(Future.failedFuture(fileDeleteReply.cause()));
+                    }
+                });
+            } else {
+                LOGGER.error(fileNameReply.cause());
+                resultHandler.handle(Future.failedFuture(fileNameReply.cause()));
+            }
+        });
     }
+
+    private void getFilename(long id, Handler<AsyncResult<String>> resultHandler){
+        databaseService.query("SELECT filename from accessinformation WHERE dataassetid = ?", new JsonArray().add(id), reply -> {
+
+            if(reply.succeeded()){
+                resultHandler.handle(Future.succeededFuture(reply.result().get(0).getString("filename")));
+            }
+            else{
+                LOGGER.error("File information could not be retrieved.", reply.cause());
+                resultHandler.handle(Future.failedFuture(reply.cause()));
+            }
+        });
+    }
+
 
     private void saveAccessInformation(AsyncResult<DataAsset> dataAsset, Handler<AsyncResult<DataAsset>> next){
         if(dataAsset.succeeded()){
