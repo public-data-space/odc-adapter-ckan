@@ -55,6 +55,14 @@ public class RepositoryServiceImpl implements RepositoryService {
     }
 
     @Override
+    public RepositoryService getFile(String fileName, Handler<AsyncResult<String>> resultHandler) {
+
+        File file = new File(this.repoPath + "/" + fileName);
+        resultHandler.handle(Future.succeededFuture(file.getAbsolutePath()));
+        return this;
+    }
+
+    @Override
     public RepositoryService deleteFile(String fileName, Handler<AsyncResult<Void>> resultHandler) {
         File file = new File(this.repoPath + "/" + fileName);
         file.delete();
@@ -76,7 +84,7 @@ public class RepositoryServiceImpl implements RepositoryService {
             File file = new File(path);
             resultHandler.handle(Future.succeededFuture(file.getAbsolutePath()));
         } catch (MalformedURLException e) {
-            LOGGER.info("URL could not be decoded.\n\n",e);
+            LOGGER.info("URL could not be decoded.",e);
             resultHandler.handle(Future.failedFuture(e.getMessage()));
         }
         return this;
@@ -131,7 +139,7 @@ public class RepositoryServiceImpl implements RepositoryService {
                     }
                 }
                 else {
-                    LOGGER.error("File could not be created.\n\n"+res.cause().toString());
+                    LOGGER.error("File could not be created.", res.cause());
                     next.handle(Future.failedFuture(res.cause()));
                 }
             });
@@ -144,7 +152,7 @@ public class RepositoryServiceImpl implements RepositoryService {
      */
     private void downloadFile(AsyncResult<String> result, String urlString, Handler<AsyncResult<String>> resultHandler){
         if(result.failed()) {
-            LOGGER.error("File Future could not be completed.\n\n"+result.cause());
+            LOGGER.error("File Future could not be completed.", result.cause());
             resultHandler.handle(Future.failedFuture(result.cause()));
         }else {
             LOGGER.info("Starting to download DataAsset file.");
@@ -169,12 +177,12 @@ public class RepositoryServiceImpl implements RepositoryService {
                                                 LOGGER.info("Received response with status code " + response.statusCode() + ". File is downloaded.");
                                                 resultHandler.handle(Future.succeededFuture(file.getName()));
                                             } else {
-                                                LOGGER.error("File could not be downloaded.\n\n" + ar.cause());
+                                                LOGGER.error("File could not be downloaded.", ar.cause());
                                                 resultHandler.handle(Future.failedFuture(ar.cause()));
                                             }
                                         });
                             } else {
-                                LOGGER.error("Filesystem could not be accessed.\n\n" + fres.cause().toString());
+                                LOGGER.error("Filesystem could not be accessed.", fres.cause());
                                 resultHandler.handle(Future.failedFuture(fres.cause()));
                             }
                         });

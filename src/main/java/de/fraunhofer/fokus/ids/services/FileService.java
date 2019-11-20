@@ -29,7 +29,7 @@ public class FileService {
         this.databaseService = DatabaseService.createProxy(vertx, Constants.DATABASE_SERVICE);
     }
 
-    public void getFile(ResourceRequest resourceRequest, Handler<AsyncResult<JsonObject>> resultHandler) {
+    public void getFile(ResourceRequest resourceRequest, Handler<AsyncResult<String>> resultHandler) {
 
         if(resourceRequest.getFileType().equals(FileType.JSON)) {
             getPayload(resourceRequest.getDataAsset(), "json", resultHandler);
@@ -40,10 +40,10 @@ public class FileService {
         getPayload(resourceRequest.getDataAsset(), "multi", resultHandler);
     }
 
-    private void getPayload(DataAsset dataAsset, String extension, Handler<AsyncResult<JsonObject>> resultHandler) {
+    private void getPayload(DataAsset dataAsset, String extension, Handler<AsyncResult<String>> resultHandler) {
 
         getAccessInformation(fileName ->
-            getFileContent( fileContent ->
+            getFile( fileContent ->
                     transform( transformedFileContent ->
                             replyFile( transformedFileContent,
                                     resultHandler),
@@ -85,6 +85,22 @@ public class FileService {
         }
     }
 
+    private void getFile(Handler<AsyncResult<String>> next, AsyncResult<String> fileName){
+        if(fileName.succeeded()) {
+            repositoryService.getFile(fileName.result(), reply -> {
+                if (reply.succeeded()) {
+                    next.handle(Future.succeededFuture(reply.result()));
+                } else {
+                    LOGGER.error("File could not be read.", reply.cause());
+                    next.handle(Future.failedFuture(reply.cause()));
+                }
+            });
+        }
+        else{
+            next.handle(Future.failedFuture(fileName.cause()));
+        }
+    }
+
     private void transform(Handler<AsyncResult<String>> next, AsyncResult<String> result, String fileType){
         if(fileType.equals("json")) {
         //TODO File transformation magic?
@@ -94,11 +110,9 @@ public class FileService {
         next.handle(Future.succeededFuture(result.result()));
     }
 
-    private void replyFile(AsyncResult<String> result, Handler<AsyncResult<JsonObject>> resultHandler){
+    private void replyFile(AsyncResult<String> result, Handler<AsyncResult<String>> resultHandler){
         if (result.succeeded()) {
-            JsonObject jO = new JsonObject();
-            jO.put("result", result.result());
-            resultHandler.handle(Future.succeededFuture(jO));
+            resultHandler.handle(Future.succeededFuture(result.result()));
         }
         else {
             LOGGER.error("FileContent could not be read.", result.cause());

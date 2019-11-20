@@ -19,6 +19,9 @@ public interface RepositoryService {
     RepositoryService getContent(String fileName, Handler<AsyncResult<String>> resultHandler);
 
     @Fluent
+    RepositoryService getFile(String fileName, Handler<AsyncResult<String>> resultHandler);
+
+    @Fluent
     RepositoryService deleteFile(String fileName, Handler<AsyncResult<Void>> resultHandler);
 
     @Fluent

@@ -94,7 +94,7 @@ public class MainVerticle extends AbstractVerticle {
 
         router.post("/getFile").handler(routingContext ->
                 fileService.getFile(Json.decodeValue(routingContext.getBodyAsString(), ResourceRequest.class), reply ->
-                        reply(reply, routingContext.response())));
+                        replyFile(reply, routingContext.response())));
 
         router.route("/supported")
                 .handler(routingContext ->
@@ -169,6 +169,19 @@ public class MainVerticle extends AbstractVerticle {
                 String entity = result.result().toString();
                 response.putHeader("content-type", ContentType.APPLICATION_JSON.toString());
                 response.end(entity);
+            } else {
+                response.setStatusCode(404).end();
+            }
+        } else {
+            response.setStatusCode(404).end();
+        }
+    }
+
+    private void replyFile(AsyncResult<String> result, HttpServerResponse response){
+        if (result.succeeded()) {
+            if (result.result() != null) {
+                response.putHeader("content-type", ContentType.APPLICATION_JSON.toString());
+                response.sendFile(result.result());
             } else {
                 response.setStatusCode(404).end();
             }
