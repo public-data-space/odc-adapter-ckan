@@ -5,10 +5,10 @@ import de.fraunhofer.fokus.ids.messages.DataAssetCreateMessage;
 import de.fraunhofer.fokus.ids.messages.ResourceRequest;
 import de.fraunhofer.fokus.ids.services.DataAssetService;
 import de.fraunhofer.fokus.ids.services.FileService;
-import de.fraunhofer.fokus.ids.services.InitService;
 import de.fraunhofer.fokus.ids.services.ckan.CKANServiceVerticle;
 import de.fraunhofer.fokus.ids.services.database.DatabaseServiceVerticle;
 import de.fraunhofer.fokus.ids.services.repository.RepositoryServiceVerticle;
+import de.fraunhofer.fokus.ids.services.InitService;
 import io.vertx.core.*;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
@@ -39,7 +39,6 @@ public class MainVerticle extends AbstractVerticle {
         this.router = Router.router(vertx);
         this.dataAssetService = new DataAssetService(vertx);
         this.fileService = new FileService(vertx);
-
         DeploymentOptions deploymentOptions = new DeploymentOptions();
         deploymentOptions.setWorker(true);
 

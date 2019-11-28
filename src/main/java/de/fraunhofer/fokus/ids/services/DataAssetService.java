@@ -116,7 +116,7 @@ public class DataAssetService {
     public void createDataAsset(DataAssetCreateMessage message, Handler<AsyncResult<JsonObject>> resultHandler) {
         final DataAsset dataAsset = new DataAsset();
         dataAsset.setSourceID(message.getDataSource().getId());
-        dataAsset.setResourceID(message.getJob().getData().getString("resourceId"));
+        dataAsset.setResourceID(message.getData().getString("resourceId",""));
         dataAsset.setId(message.getDataAssetId());
         buildDataAsset(da ->
                         saveAccessInformation(da, v ->
