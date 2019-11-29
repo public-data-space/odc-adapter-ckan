@@ -69,22 +69,6 @@ public class FileService {
 
     }
 
-    private void getFileContent(Handler<AsyncResult<String>> next, AsyncResult<String> fileName){
-        if(fileName.succeeded()) {
-            repositoryService.getContent(fileName.result(), reply -> {
-                if (reply.succeeded()) {
-                    next.handle(Future.succeededFuture(reply.result()));
-                } else {
-                    LOGGER.error("FileContent could not be read.", reply.cause());
-                    next.handle(Future.failedFuture(reply.cause()));
-                }
-            });
-        }
-        else{
-            next.handle(Future.failedFuture(fileName.cause()));
-        }
-    }
-
     private void getFile(Handler<AsyncResult<String>> next, AsyncResult<String> fileName){
         if(fileName.succeeded()) {
             repositoryService.getFile(fileName.result(), reply -> {

@@ -90,26 +90,6 @@ public class RepositoryServiceImpl implements RepositoryService {
         return this;
     }
 
-//    public String getFileContent(DataAsset dataAsset) {
-//        String name = dataAsset.getAccessInformation();
-//        String content = null;
-//        try {
-//            content = new String(Files.readAllBytes(Paths.get(this.repoPath + "/" + name)));
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//        return content;
-//    }
-
-//    public File getFile(String name) {
-//        File file = new File(this.repoPath + "/" + name);
-//        if(file.exists()) {
-//            return file;
-//        } else {
-//            return null;
-//        }
-//    }
-
     @Override
     public RepositoryService downloadResource(String urlString, Handler<AsyncResult<String>> resultHandler) {
         getFile(file ->

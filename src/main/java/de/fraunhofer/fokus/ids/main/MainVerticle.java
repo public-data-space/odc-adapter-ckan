@@ -179,7 +179,6 @@ public class MainVerticle extends AbstractVerticle {
     private void replyFile(AsyncResult<String> result, HttpServerResponse response){
         if (result.succeeded()) {
             if (result.result() != null) {
-                response.putHeader("content-type", ContentType.APPLICATION_JSON.toString());
                 response.sendFile(result.result());
             } else {
                 response.setStatusCode(404).end();
