@@ -1,0 +1,40 @@
+cache:
+  paths:
+    - .m2/repository
+
+stages:
+  - build
+  - register
+
+build:
+  stage: build
+  tags:
+    - dind
+  image: maven:3.6.0-jdk-11-slim
+  script:
+    - mvn -f ./pom.xml $MAVEN_CLI_OPTS clean package -U -DskipTests
+  only:
+    - master
+  artifacts:
+    paths:
+      - target/*.jar
+
+
+register develop:
+  stage: register
+  tags:
+    - dind
+  image: docker:latest
+  variables:
+    DOCKER_DRIVER: overlay2
+  services:
+    - docker:dind
+  only:
+    - master
+  script:
+    - docker login -u "gitlab-ci-token" -p "$CI_JOB_TOKEN" $CI_REGISTRY
+    - docker build --pull -t $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} .
+    - docker tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
+    - docker tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
+    - docker push  $CI_REGISTRY_IMAGE:latest
