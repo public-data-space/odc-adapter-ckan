@@ -20,8 +20,26 @@ build:
     paths:
       - target/*.jar
 
-
 register develop:
+  stage: register
+  tags:
+    - dind
+  image: docker:latest
+  variables:
+    DOCKER_DRIVER: overlay2
+  services:
+    - docker:dind
+  only:
+    - develop
+  script:
+    - docker login -u "gitlab-ci-token" -p "$CI_JOB_TOKEN" $CI_REGISTRY
+    - docker build --pull -t $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} .
+    - docker tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
+    - docker tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
+    - docker push  $CI_REGISTRY_IMAGE:latest
+
+register master:
   stage: register
   tags:
     - dind
@@ -33,25 +51,8 @@ register develop:
   only:
     - master
   script:
-    - docker login -u "gitlab-ci-token" -p "$CI_JOB_TOKEN" $CI_REGISTRY
-    - docker build --pull -t $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} .
-    - docker tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
-    - docker tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} $CI_REGISTRY_IMAGE:latest
-    - docker push $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
-    - docker push  $CI_REGISTRY_IMAGE:latest
-
-register tags:
-  stage: register
-  tags:
-    - dind
-  image: docker:latest
-  variables:
-    DOCKER_DRIVER: overlay2
-  services:
-    - docker:dind
-  only:
-    - tags
-  script:
-    - docker login -u "gitlab-ci-token" -p "$CI_JOB_TOKEN" $CI_REGISTRY
-    - docker build --pull -t $CI_REGISTRY_IMAGE:${CI_COMMIT_TAG} .
-    - docker push $CI_REGISTRY_IMAGE:${CI_COMMIT_TAG}
+    - docker login -u "$HUB_LOGIN" -p "$HUB_CREDENTIALS"
+    - docker tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} ${HUB_ORGANIZATION}/${CI_PROJECT_NAME}:${CI_COMMIT_SHA:0:8}
+    - docker tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} ${HUB_ORGANIZATION}/${CI_PROJECT_NAME}:latest
+    - docker push ${HUB_ORGANIZATION}/${CI_PROJECT_NAME}:${CI_COMMIT_SHA:0:8}
+    - docker push ${HUB_ORGANIZATION}/${CI_PROJECT_NAME}:latest
