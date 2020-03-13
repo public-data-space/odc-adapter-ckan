@@ -8,7 +8,6 @@ import de.fraunhofer.fokus.ids.persistence.entities.DataSource;
 import de.fraunhofer.fokus.ids.persistence.enums.DataAssetStatus;
 import de.fraunhofer.fokus.ids.services.ckan.CKANService;
 import de.fraunhofer.fokus.ids.services.database.DatabaseService;
-import de.fraunhofer.fokus.ids.services.repository.RepositoryService;
 import io.vertx.core.*;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
@@ -16,7 +15,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
-import java.io.File;
 import java.util.Date;
 import java.util.stream.Collectors;
 /**
@@ -27,7 +25,6 @@ public class DataAssetService {
     private final Logger LOGGER = LoggerFactory.getLogger(DataAssetService.class.getName());
 
     private CKANService ckanService;
-    private RepositoryService repositoryService;
     private DatabaseService databaseService;
     private FileService fileService;
 
@@ -36,7 +33,6 @@ public class DataAssetService {
 
     public DataAssetService(Vertx vertx){
         this.ckanService = CKANService.createProxy(vertx, Constants.CKAN_SERVICE);
-        this.repositoryService = RepositoryService.createProxy(vertx, Constants.REPOSITORY_SERVICE);
         this.databaseService = DatabaseService.createProxy(vertx, Constants.DATABASE_SERVICE);
         this.fileService = new FileService(vertx);
     }
@@ -44,8 +40,6 @@ public class DataAssetService {
     public void deleteDataAsset(Long id, Handler<AsyncResult<JsonObject>> resultHandler) {
         getFilename(id, fileNameReply -> {
             if(fileNameReply.succeeded()){
-                repositoryService.deleteFile(fileNameReply.result(), fileDeleteReply -> {
-                    if(fileDeleteReply.succeeded()) {
                         databaseService.update("DELETE FROM accessinformation WHERE dataassetid=?", new JsonArray().add(id), databaseDeleteReply -> {
                             if(databaseDeleteReply.succeeded()) {
                                 LOGGER.info("Data Asset successfully deleted.");
@@ -56,11 +50,6 @@ public class DataAssetService {
                                 resultHandler.handle(Future.failedFuture(databaseDeleteReply.cause()));
                             }
                         });
-                    } else {
-                      LOGGER.error(fileDeleteReply.cause());
-                      resultHandler.handle(Future.failedFuture(fileDeleteReply.cause()));
-                    }
-                });
             } else {
                 LOGGER.error(fileNameReply.cause());
                 resultHandler.handle(Future.failedFuture(fileNameReply.cause()));
@@ -85,14 +74,11 @@ public class DataAssetService {
     private void saveAccessInformation(AsyncResult<DataAsset> dataAsset, Handler<AsyncResult<DataAsset>> next){
         if(dataAsset.succeeded()){
             DataAsset dataAsset1 = dataAsset.result();
-
-            repositoryService.downloadResource(dataAsset1.getUrl(), reply -> {
-                if(reply.succeeded()) {
-                    Date d = new Date();
-                    databaseService.update("INSERT INTO accessinformation values(?,?,?,?)",
-                            new JsonArray().add(d.toInstant()).add(d.toInstant())
-                                    .add(dataAsset1.getId())
-                                    .add(reply.result()), reply2 -> {
+            Date d = new Date();
+            databaseService.update("INSERT INTO accessinformation values(?,?,?,?)",
+                    new JsonArray().add(d.toInstant()).add(d.toInstant())
+                            .add(dataAsset1.getId())
+                            .add(dataAsset1.getUrl()), reply2 -> {
                         if(reply2.succeeded()){
                             next.handle(Future.succeededFuture(dataAsset1));
                         }
@@ -100,13 +86,7 @@ public class DataAssetService {
                             LOGGER.error("Access information could not be inserted into database.", reply2.cause());
                             next.handle(Future.failedFuture(reply2.cause()));
                         }
-                            });
-                }
-                else{
-                    LOGGER.error("File resource could not be downloaded.", reply.cause());
-                    next.handle(Future.failedFuture(reply.cause()));
-                }
-            });
+                    });
         }
         else{
             next.handle(Future.failedFuture(dataAsset.cause()));

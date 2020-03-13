@@ -4,16 +4,23 @@ import de.fraunhofer.fokus.ids.enums.FileType;
 import de.fraunhofer.fokus.ids.messages.ResourceRequest;
 import de.fraunhofer.fokus.ids.persistence.entities.DataAsset;
 import de.fraunhofer.fokus.ids.services.database.DatabaseService;
-import de.fraunhofer.fokus.ids.services.repository.RepositoryService;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.codec.BodyCodec;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+
 /**
  * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
  */
@@ -21,37 +28,35 @@ public class FileService {
 
     private final Logger LOGGER = LoggerFactory.getLogger(DataAssetService.class.getName());
 
-    private RepositoryService repositoryService;
     private DatabaseService databaseService;
-
+    WebClient webClient;
     public FileService(Vertx vertx){
-        this.repositoryService = RepositoryService.createProxy(vertx, Constants.REPOSITORY_SERVICE);
+        this.webClient = WebClient.create(vertx);
         this.databaseService = DatabaseService.createProxy(vertx, Constants.DATABASE_SERVICE);
     }
 
-    public void getFile(ResourceRequest resourceRequest, Handler<AsyncResult<String>> resultHandler) {
+    public void getFile(ResourceRequest resourceRequest,HttpServerResponse httpServerResponse) {
 
         if(resourceRequest.getFileType().equals(FileType.JSON)) {
-            getPayload(resourceRequest.getDataAsset(), "json", resultHandler);
+            getPayload(resourceRequest.getDataAsset(), "json",httpServerResponse);
         }
         if(resourceRequest.getFileType().equals(FileType.TXT)) {
-            getPayload(resourceRequest.getDataAsset(), "txt", resultHandler);
+            getPayload(resourceRequest.getDataAsset(), "txt",httpServerResponse);
         }
-        getPayload(resourceRequest.getDataAsset(), "multi", resultHandler);
+        getPayload(resourceRequest.getDataAsset(), "multi",httpServerResponse);
     }
 
-    private void getPayload(DataAsset dataAsset, String extension, Handler<AsyncResult<String>> resultHandler) {
-
-        getAccessInformation(fileName ->
-            getFile( fileContent ->
-                    transform( transformedFileContent ->
-                            replyFile( transformedFileContent,
-                                    resultHandler),
-                            fileContent,
-                            extension),
-                    fileName
-                    ),
-                dataAsset);
+    private void getPayload(DataAsset dataAsset, String extension,HttpServerResponse httpServerResponse) {
+        getAccessInformation(resultHandler->{
+            if (resultHandler.succeeded()){
+                if (resultHandler.result() != null) {
+                    streamFile(resultHandler.result(),httpServerResponse);
+                } else {
+                    httpServerResponse.setStatusCode(404).end();
+                }
+            }else {
+                httpServerResponse.setStatusCode(404).end();
+            }},dataAsset);
     }
 
     private void getAccessInformation(Handler<AsyncResult<String>> resultHandler, DataAsset dataAsset){
@@ -69,20 +74,25 @@ public class FileService {
 
     }
 
-    private void getFile(Handler<AsyncResult<String>> next, AsyncResult<String> fileName){
-        if(fileName.succeeded()) {
-            repositoryService.getFile(fileName.result(), reply -> {
-                if (reply.succeeded()) {
-                    next.handle(Future.succeededFuture(reply.result()));
-                } else {
-                    LOGGER.error("File could not be read.", reply.cause());
-                    next.handle(Future.failedFuture(reply.cause()));
-                }
-            });
+    public void streamFile(String urlString , HttpServerResponse response){
+        URL url = null;
+        try {
+            url = new URL(urlString);
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
         }
-        else{
-            next.handle(Future.failedFuture(fileName.cause()));
-        }
+        response.putHeader("Transfer-Encoding", "chunked");
+        webClient
+                .get(80, url.getHost(), url.getPath())
+                .as(BodyCodec.pipe(response))
+                .send(ar -> {
+                    if (ar.succeeded()) {
+                        HttpResponse<Void> response2 = ar.result();
+                        LOGGER.info("Received response with status code " + response2.statusCode());
+                    } else {
+                       LOGGER.error("Something went wrong " + ar.cause().getMessage());
+                    }
+                });
     }
 
     private void transform(Handler<AsyncResult<String>> next, AsyncResult<String> result, String fileType){
