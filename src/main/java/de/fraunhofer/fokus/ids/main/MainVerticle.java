@@ -175,16 +175,4 @@ public class MainVerticle extends AbstractVerticle {
             response.setStatusCode(404).end();
         }
     }
-
-    private void replyFile(AsyncResult<String> result, HttpServerResponse response){
-        if (result.succeeded()) {
-            if (result.result() != null) {
-                fileService.streamFile(result.result(),response);
-            } else {
-                response.setStatusCode(404).end();
-            }
-        } else {
-            response.setStatusCode(404).end();
-        }
-    }
 }
