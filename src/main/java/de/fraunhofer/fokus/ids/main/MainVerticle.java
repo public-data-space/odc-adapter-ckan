@@ -151,7 +151,7 @@ public class MainVerticle extends AbstractVerticle {
                 .put("ckanApiUrl", new JsonObject()
                         .put("type", "string")
                         .put("ui", new JsonObject()
-                                .put("label", "Data Source URL")
+                                .put("label", "CKAN API URL")
                                 .put("placeholder", "http://localhost")))
                 .put("ckanPort", new JsonObject()
                         .put("type", "string")
