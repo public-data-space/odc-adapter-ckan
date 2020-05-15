@@ -7,7 +7,6 @@ import de.fraunhofer.fokus.ids.services.DataAssetService;
 import de.fraunhofer.fokus.ids.services.FileService;
 import de.fraunhofer.fokus.ids.services.ckan.CKANServiceVerticle;
 import de.fraunhofer.fokus.ids.services.database.DatabaseServiceVerticle;
-import de.fraunhofer.fokus.ids.services.repository.RepositoryServiceVerticle;
 import de.fraunhofer.fokus.ids.services.InitService;
 import io.vertx.core.*;
 import io.vertx.core.http.HttpMethod;
@@ -19,10 +18,15 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.codec.BodyCodec;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 import org.apache.http.entity.ContentType;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.*;
 /**
  * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
@@ -32,10 +36,8 @@ public class MainVerticle extends AbstractVerticle {
     private Router router;
     private DataAssetService dataAssetService;
     private FileService fileService;
-
     @Override
     public void start(Future<Void> startFuture) {
-
         this.router = Router.router(vertx);
         this.dataAssetService = new DataAssetService(vertx);
         this.fileService = new FileService(vertx);
@@ -59,7 +61,6 @@ public class MainVerticle extends AbstractVerticle {
                     LOGGER.error("DataBaseService failed", reply.cause());
                 }
         });
-        vertx.deployVerticle(RepositoryServiceVerticle.class.getName(), deploymentOptions, reply -> LOGGER.info("RepositoryService started"));
         vertx.deployVerticle(CKANServiceVerticle.class.getName(), deploymentOptions, reply -> LOGGER.info("CKANService started"));
 
         createHttpServer();
@@ -92,8 +93,7 @@ public class MainVerticle extends AbstractVerticle {
                         reply(reply, routingContext.response())));
 
         router.post("/getFile").handler(routingContext ->
-                fileService.getFile(Json.decodeValue(routingContext.getBodyAsString(), ResourceRequest.class), reply ->
-                        replyFile(reply, routingContext.response())));
+                fileService.getFile(Json.decodeValue(routingContext.getBodyAsString(), ResourceRequest.class),  routingContext.response()));
 
         router.route("/supported")
                 .handler(routingContext ->
@@ -151,7 +151,7 @@ public class MainVerticle extends AbstractVerticle {
                 .put("ckanApiUrl", new JsonObject()
                         .put("type", "string")
                         .put("ui", new JsonObject()
-                                .put("label", "Data Source URL")
+                                .put("label", "CKAN API URL")
                                 .put("placeholder", "http://localhost")))
                 .put("ckanPort", new JsonObject()
                         .put("type", "string")
@@ -168,18 +168,6 @@ public class MainVerticle extends AbstractVerticle {
                 String entity = result.result().toString();
                 response.putHeader("content-type", ContentType.APPLICATION_JSON.toString());
                 response.end(entity);
-            } else {
-                response.setStatusCode(404).end();
-            }
-        } else {
-            response.setStatusCode(404).end();
-        }
-    }
-
-    private void replyFile(AsyncResult<String> result, HttpServerResponse response){
-        if (result.succeeded()) {
-            if (result.result() != null) {
-                response.sendFile(result.result());
             } else {
                 response.setStatusCode(404).end();
             }

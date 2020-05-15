@@ -15,6 +15,7 @@ build:
     - mvn -f ./pom.xml $MAVEN_CLI_OPTS clean package -U -DskipTests
   only:
     - master
+    - develop
   artifacts:
     paths:
       - target/*.jar
