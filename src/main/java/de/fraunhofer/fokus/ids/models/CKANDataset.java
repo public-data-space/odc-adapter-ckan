@@ -23,6 +23,8 @@ public class CKANDataset {
 
     public List<CKANTag> tags;
 
+    public List<CKANResource> resources;
+
     public CKANOrganization organization;
 
     public String version;

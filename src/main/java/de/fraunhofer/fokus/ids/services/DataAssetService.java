@@ -5,17 +5,25 @@ import de.fraunhofer.fokus.ids.models.CKANDataset;
 import de.fraunhofer.fokus.ids.models.CKANResource;
 import de.fraunhofer.fokus.ids.persistence.entities.DataAsset;
 import de.fraunhofer.fokus.ids.persistence.entities.DataSource;
+import de.fraunhofer.fokus.ids.persistence.entities.Dataset;
+import de.fraunhofer.fokus.ids.persistence.entities.Distribution;
 import de.fraunhofer.fokus.ids.persistence.enums.DataAssetStatus;
 import de.fraunhofer.fokus.ids.services.ckan.CKANService;
 import de.fraunhofer.fokus.ids.services.database.DatabaseService;
 import io.vertx.core.*;
+import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.apache.commons.io.FilenameUtils;
 
+import java.net.URL;
+import java.text.DateFormat;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 /**
  * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
@@ -94,25 +102,42 @@ public class DataAssetService {
     }
 
     public void createDataAsset(DataAssetCreateMessage message, Handler<AsyncResult<JsonObject>> resultHandler) {
-        final DataAsset dataAsset = new DataAsset();
-        dataAsset.setSourceID(message.getDataSource().getId());
-        dataAsset.setResourceID(message.getData().getString("resourceId",""));
-        dataAsset.setId(message.getDataAssetId());
+        final Dataset dataset = new Dataset();
+        dataset.setSourceid(message.getDataSource().getId());
+        dataset.setId(message.getDataAssetId());
         buildDataAsset(da ->
                         saveAccessInformation(da, v ->
                                 replyDataAsset(v,
                                         resultHandler)),
-                dataAsset,
+                dataset,
+                message.getData().getString("resourceId",""),
                 message.getDataSource());
     }
 
-    private void buildDataAsset(Handler<AsyncResult<DataAsset>> next,
-                                DataAsset dataAsset,
+    private void buildDataAsset(Handler<AsyncResult<Dataset>> next,
+                                Dataset dataAsset,
+                                String id,
                                 DataSource dataSource){
 
-        ckanService.query(new JsonObject(Json.encode(dataSource)), dataAsset.getResourceID(), RESOURCE_SHOW, reply -> {
+        ckanService.query(new JsonObject(Json.encode(dataSource)), id, PACKAGE_SHOW, packageReply -> {
+            if (packageReply.succeeded()) {
+                if(!packageReply.result().getBoolean("success")){
+                    handleResourceURI(next, dataAsset, id, dataSource);
+                } else {
+                    handlePackageURI(next, dataAsset, id, dataSource);
+                }
+            }
+        });
+
+
+
+
+
+
+            ckanService.query(new JsonObject(Json.encode(dataSource)), dataAsset.getResourceID(), RESOURCE_SHOW, reply -> {
                 if (reply.succeeded()) {
                     CKANResource ckanResource = Json.decodeValue(reply.result().toString(), CKANResource.class);
+
                     dataAsset.setFormat(ckanResource.format);
                     dataAsset.setName(ckanResource.name);
                     dataAsset.setResourceID(ckanResource.id);
@@ -148,6 +173,80 @@ public class DataAssetService {
                     LOGGER.error("DataAsset Future could not be completed.", reply.cause());
                     next.handle(Future.failedFuture(reply.cause()));
                 }
+        });
+    }
+
+    private void handlePackageURI(Handler<AsyncResult<Dataset>> next,
+                                  Dataset dataAsset,
+                                  String id,
+                                  DataSource dataSource) {
+
+        queryPackage(id, dataSource, reply -> {
+            if(reply.succeeded()){
+                CKANDataset ckanDataset = reply.result();
+                dataAsset.setTags(ckanDataset.tags.stream().map(t -> t.display_name).collect(Collectors.toSet()));
+                dataAsset.setVersion(ckanDataset.version);
+                dataAsset.setStatus(DataAssetStatus.APPROVED);
+                dataAsset.setDescription(ckanDataset.notes);
+                dataAsset.setTitle(ckanDataset.title);
+                dataAsset.setLicense(ckanDataset.license_url);
+                Set<Distribution> distributions = new HashSet();
+                for(CKANResource cr : ckanDataset.resources){
+                    if(cr.id.equals(id)){
+                        Distribution distribution = new Distribution();
+                        distribution.setFilename(FilenameUtils.getName(cr.url));
+                        distribution.setTitle(cr.name);
+                        distribution.setDescription(cr.description);
+                        distribution.setFiletype(resolveFormat(cr.format));
+                        distributions.add(distribution);
+                    }
+                }
+                dataAsset.setDistributions(distributions);
+            }
+
+        });
+
+    }
+
+    private void handleResourceURI(Handler<AsyncResult<Dataset>> next,
+                                   Dataset dataAsset,
+                                   String id,
+                                   DataSource dataSource) {
+
+        queryPackage(id, dataSource, reply -> {
+            if(reply.succeeded()){
+                CKANDataset ckanDataset = reply.result();
+                dataAsset.setTags(ckanDataset.tags.stream().map(t -> t.display_name).collect(Collectors.toSet()));
+                dataAsset.setVersion(ckanDataset.version);
+                dataAsset.setStatus(DataAssetStatus.APPROVED);
+                dataAsset.setDescription(ckanDataset.notes);
+                dataAsset.setTitle(ckanDataset.title);
+                dataAsset.setLicense(ckanDataset.license_url);
+                for(CKANResource cr : ckanDataset.resources){
+                    if(cr.id.equals(id)){
+                        Distribution distribution = new Distribution();
+                        distribution.setFilename(FilenameUtils.getName(cr.url));
+                        distribution.setTitle(cr.name);
+                        distribution.setDescription(cr.description);
+                        distribution.setFiletype(resolveFormat(cr.format));
+                        Set<Distribution> distributions = new HashSet();
+                        distributions.add(distribution);
+                        dataAsset.setDistributions(distributions);
+                    }
+                }
+            }
+
+        });
+
+    }
+
+    private void queryPackage(String id, DataSource dataSource, Handler<AsyncResult<CKANDataset>> next) {
+        ckanService.query(new JsonObject(Json.encode(dataSource)), id, PACKAGE_SHOW, reply -> {
+            if(reply.succeeded()){
+                next.handle(Future.succeededFuture(Json.decodeValue(reply.result().toString(), CKANDataset.class)));
+            } else {
+                next.handle(Future.failedFuture(reply.cause()));
+            }
         });
     }
 

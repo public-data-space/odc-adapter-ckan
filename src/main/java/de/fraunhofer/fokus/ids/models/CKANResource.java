@@ -16,4 +16,8 @@ public class CKANResource {
     public String package_id;
 
     public String originalURL;
+
+    public String description;
+
+    public String created;
 }
