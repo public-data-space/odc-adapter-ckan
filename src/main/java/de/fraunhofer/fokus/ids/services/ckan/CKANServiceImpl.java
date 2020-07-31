@@ -1,6 +1,7 @@
 package de.fraunhofer.fokus.ids.services.ckan;
 
 import de.fraunhofer.fokus.ids.persistence.entities.DataSource;
+import de.fraunhofer.fokus.ids.persistence.entities.serialization.DataSourceSerializer;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -12,6 +13,8 @@ import io.vertx.ext.web.client.WebClient;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.ParseException;
+
 /**
  * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
  */
@@ -27,7 +30,13 @@ public class CKANServiceImpl implements CKANService {
     @Override
     public CKANService query(JsonObject dataSourceJson, String resourceID, String resourceAPIPath, Handler<AsyncResult<JsonObject>> resultHandler) {
         LOGGER.info("Querying CKAN.");
-        DataSource dataSource = Json.decodeValue(dataSourceJson.toString(), DataSource.class);
+        DataSource dataSource = null;
+        try {
+            dataSource = DataSourceSerializer.deserialize(dataSourceJson);
+        } catch (ParseException e) {
+            LOGGER.error(e);
+            resultHandler.handle(Future.failedFuture(e));
+        }
         try {
             URL dsUrl = new URL(dataSource.getData().getString("ckanApiUrl"));
             String host = dsUrl.getHost();
