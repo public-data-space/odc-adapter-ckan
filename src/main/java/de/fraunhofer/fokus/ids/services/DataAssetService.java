@@ -15,7 +15,11 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Paths;
 import java.util.Date;
+import java.util.UUID;
 import java.util.stream.Collectors;
 /**
  * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
@@ -136,6 +140,22 @@ public class DataAssetService {
                                 dataAsset.setDataSetDescription("");
                                 dataAsset.setSignature("");
                                 dataAsset.setStatus(DataAssetStatus.APPROVED);
+
+                                try {
+                                    String filename = Paths.get(new URI(ckanResource.url).getPath()).getFileName().toString();
+                                    if(ckanResource.format != null && filename.toLowerCase().endsWith(ckanResource.format.toLowerCase())) {
+                                        dataAsset.setFilename(filename);
+                                    } else {
+                                        dataAsset.setFilename(filename+"."+ckanResource.format);
+                                    }
+                                } catch (URISyntaxException e) {
+                                    LOGGER.info("Filename could not be extracted from URL.");
+                                    if(ckanResource.format != null){
+                                        dataAsset.setFilename(UUID.randomUUID().toString()+"."+ckanResource.format);
+                                    } else {
+                                        dataAsset.setFilename(UUID.randomUUID().toString());
+                                    }
+                                }
 
                                 next.handle(Future.succeededFuture(dataAsset));
 

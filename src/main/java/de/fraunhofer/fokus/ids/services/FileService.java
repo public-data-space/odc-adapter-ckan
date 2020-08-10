@@ -52,9 +52,11 @@ public class FileService {
                 if (resultHandler.result() != null) {
                     streamFile(resultHandler.result(),httpServerResponse);
                 } else {
+                    LOGGER.error("File is null");
                     httpServerResponse.setStatusCode(404).end();
                 }
             }else {
+                LOGGER.error(resultHandler.cause());
                 httpServerResponse.setStatusCode(404).end();
             }},dataAsset);
     }
@@ -81,6 +83,7 @@ public class FileService {
         } catch (MalformedURLException e) {
             e.printStackTrace();
         }
+        LOGGER.info("Piping file from "+urlString);
         response.putHeader("Transfer-Encoding", "chunked");
         webClient
                 .get(80, url.getHost(), url.getPath())
