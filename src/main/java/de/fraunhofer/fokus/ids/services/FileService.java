@@ -81,12 +81,13 @@ public class FileService {
         try {
             url = new URL(urlString);
         } catch (MalformedURLException e) {
-            e.printStackTrace();
+            LOGGER.error(e);
+            response.setStatusCode(404).end();
         }
         LOGGER.info("Piping file from "+urlString);
         response.putHeader("Transfer-Encoding", "chunked");
         webClient
-                .get(80, url.getHost(), url.getPath())
+                .getAbs(url.toString())
                 .as(BodyCodec.pipe(response))
                 .send(ar -> {
                     if (ar.succeeded()) {

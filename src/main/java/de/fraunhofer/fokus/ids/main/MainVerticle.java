@@ -18,15 +18,10 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
-import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.codec.BodyCodec;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 import org.apache.http.entity.ContentType;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.*;
 /**
  * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
@@ -152,12 +147,7 @@ public class MainVerticle extends AbstractVerticle {
                         .put("type", "string")
                         .put("ui", new JsonObject()
                                 .put("label", "CKAN API URL")
-                                .put("placeholder", "http://localhost")))
-                .put("ckanPort", new JsonObject()
-                        .put("type", "string")
-                        .put("ui", new JsonObject()
-                                .put("label", "Data Source Port")
-                                .put("placeholder", "8080"))));
+                                .put("placeholder", "https://localhost:443/api/3/action"))));
 
         next.handle(Future.succeededFuture(jO.toString()));
     }

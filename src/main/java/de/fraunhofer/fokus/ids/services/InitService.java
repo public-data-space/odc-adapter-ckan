@@ -22,12 +22,14 @@ public class InitService {
     public InitService(Vertx vertx, Handler<AsyncResult<Void>> resultHandler){
         this.databaseService = DatabaseService.createProxy(vertx, Constants.DATABASE_SERVICE);
 
-        Future<Void> dbFuture = Future.future();
-        initDB(dbFuture.completer());
-        Future<Void> configFuture = Future.future();
-        register(vertx, configFuture.completer());
+        Promise<Void> dbPromise = Promise.promise();
+        Future<Void> dbFuture = dbPromise.future();
+        initDB(dbFuture);
+        Promise<Void> configPromise = Promise.promise();
+        Future<Void> configFuture = configPromise.future();
+        register(vertx, configFuture);
 
-        CompositeFuture.all(dbFuture, configFuture).setHandler( reply -> {
+        CompositeFuture.all(dbFuture, configFuture).onComplete( reply -> {
             if(reply.succeeded()){
                 resultHandler.handle(Future.succeededFuture());
             }

@@ -38,16 +38,15 @@ public class CKANServiceImpl implements CKANService {
             resultHandler.handle(Future.failedFuture(e));
         }
         try {
-            URL dsUrl = new URL(dataSource.getData().getString("ckanApiUrl"));
-            String host = dsUrl.getHost();
-            int port = Integer.parseInt(dataSource.getData().getString("ckanPort"));
-            String path = dsUrl.getPath().equals("/") ? "" : dsUrl.getPath() + resourceAPIPath + resourceID;
-
+            String url = dataSource.getData().getString("ckanApiUrl");
+            url = url.endsWith("/") ? url.substring(0,url.length()-1):url;
+            URL dsUrl = new URL(url + resourceAPIPath + resourceID);
+            LOGGER.info("Querying "+dsUrl.toString());
             webClient
-                    .get(port, host, path)
+                    .getAbs(dsUrl.toString())
                     .send(ar -> {
                         if (ar.succeeded()) {
-                            resultHandler.handle(Future.succeededFuture(ar.result().bodyAsJsonObject().getJsonObject("result").put("originalURL", host + path)));
+                            resultHandler.handle(Future.succeededFuture(ar.result().bodyAsJsonObject().getJsonObject("result").put("originalURL", dsUrl.toString())));
                         } else {
                             LOGGER.error("No response from CKAN.", ar.cause());
                             resultHandler.handle(Future.failedFuture(ar.cause()));
