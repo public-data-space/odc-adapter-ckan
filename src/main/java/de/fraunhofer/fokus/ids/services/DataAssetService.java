@@ -127,7 +127,6 @@ public class DataAssetService {
                     ckanService.query(new JsonObject(Json.encode(dataSource)), dataAsset.getDatasetID(), PACKAGE_SHOW, reply2 -> {
                             if (reply2.succeeded()) {
                                 CKANDataset ckanDataset = Json.decodeValue(reply2.result().toString(), CKANDataset.class);
-                                dataAsset.setDataSetDescription(ckanDataset.notes);
                                 dataAsset.setDatasetNotes(ckanDataset.notes);
                                 dataAsset.setDatasetTitle(ckanDataset.title);
                                 dataAsset.setLicenseTitle(ckanDataset.license_title);
@@ -138,7 +137,7 @@ public class DataAssetService {
                                 dataAsset.setTags(ckanDataset.tags.stream().map(t -> t.display_name).collect(Collectors.toList()));
                                 dataAsset.setOrganizationDescription(ckanDataset.organization.description);
                                 dataAsset.setVersion(ckanDataset.version);
-                                dataAsset.setDataSetDescription("");
+                                dataAsset.setDataSetDescription(ckanDataset.notes);
                                 dataAsset.setSignature("");
                                 dataAsset.setStatus(DataAssetStatus.APPROVED);
 
