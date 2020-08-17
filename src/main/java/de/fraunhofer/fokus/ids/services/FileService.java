@@ -16,6 +16,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.ext.web.codec.BodyCodec;
 
 import java.net.MalformedURLException;
@@ -31,7 +32,8 @@ public class FileService {
     private DatabaseService databaseService;
     WebClient webClient;
     public FileService(Vertx vertx){
-        this.webClient = WebClient.create(vertx);
+        WebClientOptions options = new WebClientOptions().setTrustAll(true);
+        this.webClient = WebClient.create(vertx, options);
         this.databaseService = DatabaseService.createProxy(vertx, Constants.DATABASE_SERVICE);
     }
 
