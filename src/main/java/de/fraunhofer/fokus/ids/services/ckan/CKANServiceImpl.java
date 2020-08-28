@@ -46,7 +46,11 @@ public class CKANServiceImpl implements CKANService {
                     .getAbs(dsUrl.toString())
                     .send(ar -> {
                         if (ar.succeeded()) {
-                            resultHandler.handle(Future.succeededFuture(ar.result().bodyAsJsonObject().getJsonObject("result").put("originalURL", dsUrl.toString())));
+                            if((ar.result().bodyAsJsonObject().getBoolean("success"))){
+                                resultHandler.handle(Future.succeededFuture(ar.result().bodyAsJsonObject().getJsonObject("result").put("originalURL", dsUrl.toString())));
+                            } else {
+                                resultHandler.handle(Future.failedFuture(""));
+                            }
                         } else {
                             LOGGER.error("No response from CKAN.", ar.cause());
                             resultHandler.handle(Future.failedFuture(ar.cause()));

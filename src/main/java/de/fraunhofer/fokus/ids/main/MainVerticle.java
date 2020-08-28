@@ -84,7 +84,7 @@ public class MainVerticle extends AbstractVerticle {
                         reply(reply, routingContext.response())));
 
         router.get("/delete/:id").handler(routingContext ->
-                dataAssetService.deleteDataAsset(Long.parseLong(routingContext.request().getParam("id")), reply ->
+                dataAssetService.deleteDataAsset(routingContext.request().getParam("id"), reply ->
                         reply(reply, routingContext.response())));
 
         router.post("/getFile").handler(routingContext ->

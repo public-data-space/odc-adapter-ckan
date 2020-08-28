@@ -2,16 +2,14 @@ package de.fraunhofer.fokus.ids.services;
 
 import de.fraunhofer.fokus.ids.enums.FileType;
 import de.fraunhofer.fokus.ids.messages.ResourceRequest;
-import de.fraunhofer.fokus.ids.persistence.entities.DataAsset;
+import de.fraunhofer.fokus.ids.persistence.entities.Distribution;
 import de.fraunhofer.fokus.ids.services.database.DatabaseService;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpResponse;
@@ -48,7 +46,7 @@ public class FileService {
         getPayload(resourceRequest.getDataAsset(), "multi",httpServerResponse);
     }
 
-    private void getPayload(DataAsset dataAsset, String extension,HttpServerResponse httpServerResponse) {
+    private void getPayload(Distribution distribution, String extension, HttpServerResponse httpServerResponse) {
         getAccessInformation(resultHandler->{
             if (resultHandler.succeeded()){
                 if (resultHandler.result() != null) {
@@ -60,15 +58,15 @@ public class FileService {
             }else {
                 LOGGER.error(resultHandler.cause());
                 httpServerResponse.setStatusCode(404).end();
-            }},dataAsset);
+            }},distribution);
     }
 
-    private void getAccessInformation(Handler<AsyncResult<String>> resultHandler, DataAsset dataAsset){
+    private void getAccessInformation(Handler<AsyncResult<String>> resultHandler, Distribution distribution){
 
-        databaseService.query("SELECT filename from accessinformation WHERE dataassetid = ?", new JsonArray().add(dataAsset.getId()), reply -> {
+        databaseService.query("SELECT url from accessinformation WHERE distributionid = ?", new JsonArray().add(distribution.getResourceId()), reply -> {
 
             if(reply.succeeded()){
-                resultHandler.handle(Future.succeededFuture(reply.result().get(0).getString("filename")));
+                resultHandler.handle(Future.succeededFuture(reply.result().get(0).getString("url")));
             }
             else{
                 LOGGER.error("File information could not be retrieved.", reply.cause());
