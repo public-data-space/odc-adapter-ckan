@@ -15,7 +15,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import org.apache.commons.io.FilenameUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -31,7 +30,6 @@ public class DataAssetService {
 
     private CKANService ckanService;
     private DatabaseService databaseService;
-    private FileService fileService;
 
     private String RESOURCE_SHOW = "/resource_show?id=";
     private String PACKAGE_SHOW = "/package_show?id=";
@@ -39,7 +37,6 @@ public class DataAssetService {
     public DataAssetService(Vertx vertx){
         this.ckanService = CKANService.createProxy(vertx, Constants.CKAN_SERVICE);
         this.databaseService = DatabaseService.createProxy(vertx, Constants.DATABASE_SERVICE);
-        this.fileService = new FileService(vertx);
     }
 
     public void deleteDataAsset(String id, Handler<AsyncResult<JsonObject>> resultHandler) {
@@ -191,18 +188,14 @@ public class DataAssetService {
         distribution.setLicense(dataset.getLicense());
         try {
             String filename = Paths.get(new URI(ckanResource.url).getPath()).getFileName().toString();
-            if(ckanResource.format != null && filename.toLowerCase().endsWith(ckanResource.format.toLowerCase())) {
+            if(ckanResource.format != null) {
                 distribution.setFilename(filename);
-            } else {
-                distribution.setFilename(filename+"."+ckanResource.format);
-            }
-        } catch (URISyntaxException e) {
-            LOGGER.info("Filename could not be extracted from URL.");
-            if(ckanResource.format != null){
-                distribution.setFilename(UUID.randomUUID().toString()+"."+ckanResource.format);
             } else {
                 distribution.setFilename(UUID.randomUUID().toString());
             }
+        } catch (URISyntaxException e) {
+            LOGGER.info("Filename could not be extracted from URL.");
+            distribution.setFilename(UUID.randomUUID().toString());
         }
         saveAccessInformation(distribution, ckanResource, dataset.getResourceId(), reply -> {
             if(reply.succeeded()){
