@@ -16,9 +16,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 /**
@@ -30,6 +27,7 @@ public class DataAssetService {
 
     private CKANService ckanService;
     private DatabaseService databaseService;
+    private FileService fileService;
 
     private String RESOURCE_SHOW = "/resource_show?id=";
     private String PACKAGE_SHOW = "/package_show?id=";
@@ -37,6 +35,7 @@ public class DataAssetService {
     public DataAssetService(Vertx vertx){
         this.ckanService = CKANService.createProxy(vertx, Constants.CKAN_SERVICE);
         this.databaseService = DatabaseService.createProxy(vertx, Constants.DATABASE_SERVICE);
+        this.fileService = new FileService(vertx);
     }
 
     public void deleteDataAsset(String id, Handler<AsyncResult<JsonObject>> resultHandler) {
@@ -186,25 +185,19 @@ public class DataAssetService {
         distribution.setFiletype(ckanResource.format);
         distribution.setResourceId(UUID.randomUUID().toString());
         distribution.setLicense(dataset.getLicense());
-        try {
-            String filename = Paths.get(new URI(ckanResource.url).getPath()).getFileName().toString();
-            if(ckanResource.format != null) {
-                distribution.setFilename(filename);
-            } else {
-                distribution.setFilename(UUID.randomUUID().toString());
+        fileService.tryFile(ckanResource.url, reply -> {
+            if(reply.succeeded()) {
+                distribution.setFilename(reply.result());
+                saveAccessInformation(distribution, ckanResource, dataset.getResourceId(), reply2 -> {
+                    if (reply2.succeeded()) {
+                        resultHandler.handle(Future.succeededFuture(distribution));
+                    } else {
+                        LOGGER.error(reply2.cause());
+                        resultHandler.handle(Future.failedFuture(reply2.cause()));
+                    }
+                });
             }
-        } catch (URISyntaxException e) {
-            LOGGER.info("Filename could not be extracted from URL.");
-            distribution.setFilename(UUID.randomUUID().toString());
-        }
-        saveAccessInformation(distribution, ckanResource, dataset.getResourceId(), reply -> {
-            if(reply.succeeded()){
-                resultHandler.handle(Future.succeededFuture(distribution));
-            } else {
-                LOGGER.error(reply.cause());
-                resultHandler.handle(Future.failedFuture(reply.cause()));
-            }
-        });
+    });
     }
 
     private void queryPackage(String id, DataSource dataSource, Handler<AsyncResult<CKANDataset>> next) {

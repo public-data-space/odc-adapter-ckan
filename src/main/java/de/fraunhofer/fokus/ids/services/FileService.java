@@ -8,6 +8,8 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
@@ -19,6 +21,7 @@ import io.vertx.ext.web.codec.BodyCodec;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.UUID;
 
 /**
  * @author Vincent Bohlen, vincent.bohlen@fokus.fraunhofer.de
@@ -74,6 +77,33 @@ public class FileService {
             }
         });
 
+    }
+
+    public void tryFile(String urlString, Handler<AsyncResult<String>> resultHandler){
+        URL url = null;
+        try {
+            url = new URL(urlString);
+        } catch (MalformedURLException e) {
+            LOGGER.error(e);
+        }
+        webClient
+                .headAbs(url.toString())
+                .send(ar -> {
+                    if (ar.succeeded()) {
+                        HttpResponse<Buffer> response2 = ar.result();
+                        String contentDisposition = response2.getHeader(HttpHeaders.CONTENT_DISPOSITION.toString());
+                        if (contentDisposition != null) {
+                            if (contentDisposition.contains("filename")) {
+                                String filename = contentDisposition.substring(contentDisposition.indexOf("filename")).split("\"")[1].trim();
+                                resultHandler.handle(Future.succeededFuture(filename));
+                            }
+                        } else {
+                            resultHandler.handle(Future.succeededFuture(UUID.randomUUID().toString()));
+                        }
+                    } else {
+                        resultHandler.handle(Future.succeededFuture(UUID.randomUUID().toString()));
+                    }
+                });
     }
 
     public void streamFile(String urlString , HttpServerResponse response){
