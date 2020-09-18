@@ -20,7 +20,10 @@ import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.ext.web.codec.BodyCodec;
 
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.UUID;
 
 /**
@@ -92,19 +95,25 @@ public class FileService {
                     if (ar.succeeded()) {
                         HttpResponse<Buffer> response2 = ar.result();
                         String contentDisposition = response2.getHeader(HttpHeaders.CONTENT_DISPOSITION.toString());
-                        if (contentDisposition != null) {
-                            if (contentDisposition.contains("filename")) {
-                                String filename = contentDisposition.substring(contentDisposition.indexOf("filename")).split("\"")[1].trim();
-                                resultHandler.handle(Future.succeededFuture(filename));
-                            }
+                        if (contentDisposition != null && contentDisposition.contains("filename")) {
+                            String filename = contentDisposition.substring(contentDisposition.indexOf("filename")).split("\"")[1].trim();
+                            resultHandler.handle(Future.succeededFuture(filename));
                         } else {
-                            resultHandler.handle(Future.succeededFuture(UUID.randomUUID().toString()));
-                        }
+                            resultHandler.handle(Future.succeededFuture(resolvePath(urlString)));                        }
                     } else {
-                        resultHandler.handle(Future.succeededFuture(UUID.randomUUID().toString()));
-                    }
+                        resultHandler.handle(Future.succeededFuture(resolvePath(urlString)));                    }
                 });
     }
+
+    private String resolvePath(String url){
+        try {
+            return Paths.get(new URI(url).getPath()).getFileName().toString();
+
+        } catch (URISyntaxException e) {
+            return UUID.randomUUID().toString();
+        }
+    }
+
 
     public void streamFile(String urlString , HttpServerResponse response){
         URL url = null;
