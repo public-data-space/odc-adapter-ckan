@@ -96,8 +96,13 @@ public class FileService {
                         HttpResponse<Buffer> response2 = ar.result();
                         String contentDisposition = response2.getHeader(HttpHeaders.CONTENT_DISPOSITION.toString());
                         if (contentDisposition != null && contentDisposition.contains("filename")) {
-                            String filename = contentDisposition.substring(contentDisposition.indexOf("filename")).split("\"")[1].trim();
-                            resultHandler.handle(Future.succeededFuture(filename));
+                            String[] dispSplit = contentDisposition.substring(contentDisposition.indexOf("filename")).split("\"");
+                            if (dispSplit.length > 1) {
+                                String filename = dispSplit[1].trim();
+                                resultHandler.handle(Future.succeededFuture(filename));
+                            } else {
+                                resultHandler.handle(Future.succeededFuture(resolvePath(urlString)));
+                            }
                         } else {
                             resultHandler.handle(Future.succeededFuture(resolvePath(urlString)));                        }
                     } else {
