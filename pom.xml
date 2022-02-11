@@ -87,7 +87,7 @@
         </plugins>
     </build>
     <properties>
-        <vertxVersion>3.9.1</vertxVersion>
+        <vertxVersion>3.9.4</vertxVersion>
     </properties>
     <dependencies>
         <dependency>
